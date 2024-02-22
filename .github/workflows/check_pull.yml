@@ -17,9 +17,15 @@ jobs:
       - name: Get number of lines changed
         id: lines-changed
         run: |
-          lines_changed=$(git diff --numstat HEAD^..HEAD | awk '{ total += $1 + $2 } END { print total }')
-          echo "Lines changed: $lines_changed"
-          echo "::set-output name=lines_changed::$lines_changed"
+          # Check if this is the initial commit
+          if [ $(git rev-parse HEAD) = $(git rev-parse HEAD^) ]; then
+            echo "No previous commit found. Skipping lines changed calculation."
+            echo "::set-output name=lines_changed::0"
+          else
+            lines_changed=$(git diff --numstat HEAD^..HEAD | awk '{ total += $1 + $2 } END { print total }')
+            echo "Lines changed: $lines_changed"
+            echo "::set-output name=lines_changed::$lines_changed"
+          fi
 
       - name: Check if pull request is needed
         id: check-pr-needed
