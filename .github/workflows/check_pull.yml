@@ -3,8 +3,7 @@ name: Enforce Pull Request for Large Changes
 on:
   push:
     branches:
-      - test_1
-      - test_2
+      - main  # Adjust the branch name as needed
 
 jobs:
   enforce-pull-request:
@@ -17,17 +16,16 @@ jobs:
       - name: Get number of lines changed
         id: lines-changed
         run: |
-          # Calculate the number of lines changed
-          lines_changed=$(git diff --numstat HEAD^..HEAD | awk '{ total += $1 + $2 } END { print total }')
+          lines_changed=$(git diff --numstat ${{ github.event.before }} ${{ github.sha }} | awk '{ total += $1 + $2 } END { print total }')
+          echo "Lines changed: $lines_changed"
           echo "::set-output name=lines_changed::$lines_changed"
 
       - name: Check if pull request is needed
         id: check-pr-needed
         run: |
-          # Get the number of lines changed from the previous step
           lines_changed=${{ steps.lines-changed.outputs.lines_changed }}
-          threshold=30  # I set this to 30, but we can change it if needed.
-          if [ "$lines_changed" -gt "$threshold" ]; then
+          threshold=30  # Adjust the threshold as needed
+          if [ -n "$lines_changed" ] && [ "$lines_changed" -gt "$threshold" ]; then
             echo "::set-output name=pr_needed::true"
           else
             echo "::set-output name=pr_needed::false"
