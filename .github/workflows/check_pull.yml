@@ -3,7 +3,8 @@ name: Enforce Pull Request for Large Changes
 on:
   push:
     branches:
-      - main  # Adjust the branch name as needed
+      - test_1
+      - test_2
 
 jobs:
   enforce-pull-request:
