@@ -1,0 +1,39 @@
+name: Enforce Pull Request for Large Changes
+
+on:
+  push:
+    branches:
+      - test_1
+      - test_2
+
+jobs:
+  enforce-pull-request:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get number of lines changed
+        id: lines-changed
+        run: |
+          # Calculate the number of lines changed
+          lines_changed=$(git diff --numstat HEAD^ | awk '{ total += $1 + $2 } END { print total }')
+          echo "::set-output name=lines_changed::$lines_changed"
+
+      - name: Check if pull request is needed
+        id: check-pr-needed
+        run: |
+          # Get the number of lines changed from the previous step
+          lines_changed=${{ steps.lines-changed.outputs.lines_changed }}
+          threshold=30 # I set it to 30, but we can change this if needed.
+          if [ "$lines_changed" -gt "$threshold" ]; then
+            echo "::set-output name=pr_needed::true"
+          else
+            echo "::set-output name=pr_needed::false"
+          fi
+
+      - name: Comment on pull request if push was blocked
+        if: steps.check-pr-needed.outputs.pr_needed == 'true'
+        run: |
+          echo "::error::Push was blocked. Please create a pull request for large changes."
