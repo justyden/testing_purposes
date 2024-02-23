@@ -1,34 +1,30 @@
-name: Enforce Pull Request for Large Changes
+name: Enforce Pull Request for Large Changes on Non-Main Branches
 
 on:
   push:
+    branches-ignore:
+      - main  # Exclude the main branch
 
 jobs:
-  enforce-pull-request:
+  check_large_push:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-
-      - name: Get number of lines changed
-        id: lines-changed
+      
+      - name: Check for large push
+        id: lines_changed
         run: |
-          lines_changed=$(curl -s "https://api.github.com/repos/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}" | jq '.files[] | .changes' | awk '{ total += $1 } END { print total }')
-          echo "Lines changed: $lines_changed"
-          echo "::set-output name=lines_changed::$lines_changed"
-
-      - name: Check if pull request is needed
-        id: check-pr-needed
-        run: |
-          lines_changed=${{ steps.lines-changed.outputs.lines_changed }}
-          threshold=30  # Adjust the threshold as needed
-          if [ -n "$lines_changed" ] && [ "$lines_changed" -gt "$threshold" ]; then
-            echo "::error::Changes exceed 30 lines. Please create a pull request for large changes."
-            exit 1  # Exit with non-zero code to indicate failure
+          git fetch origin ${{ github.event.before }}:${{ github.event.before }}
+          LINES_ADDED=$(git diff --numstat ${{ github.event.before }} | awk '{s+=$1} END {print s}')
+          LINES_DELETED=$(git diff --numstat ${{ github.event.before }} | awk '{s+=$2} END {print s}')
+          TOTAL_LINES=$((LINES_ADDED + LINES_DELETED))
+          echo "Total lines changed: $TOTAL_LINES"
+          if [ "$TOTAL_LINES" -gt 30 ]; then
+            echo "##[error] Push contains more than 30 lines of changes. Please submit a pull request for review."
+            exit 1
           fi
 
-      - name: Merge pull request if approved
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-        run: |
-          echo "::success::Pull request approved and merged. Changes can be pushed directly now."
+      - name: Push is acceptable
+        if: steps.lines_changed.outcome == 'success'
+        run: echo "Push contains fewer than 30 lines of changes."
